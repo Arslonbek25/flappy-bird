@@ -1,34 +1,26 @@
-import Phaser from "phaser";
+import BaseScene from "./BaseScene";
 
-class PlayScene extends Phaser.Scene {
+class PlayScene extends BaseScene {
 	constructor(config) {
-		super("PlayScene");
-		this.config = config;
-		this.initialBirdPos = { x: 80, y: 300 };
-		this.bird = null;
-		this.pipes = null;
-		this.flapVelocity = 350;
+		super("PlayScene", config);
+
+		this.flapVelocity = 300;
 		this.pipesToRender = 4;
 		this.gravity = 800;
 		this.pipeOpeningRange = [100, 250];
 		this.pipeDistanceRange = [400, 450];
-		this.initialBirdPos = {
-			x: config.width / 10,
-			y: config.height / 2,
-		};
-	}
 
-	preload() {
-		this.load.image("sky", "assets/sky.png");
-		this.load.image("bird", "assets/bird.png");
-		this.load.image("pipe", "assets/pipe.png");
+		this.score = 0;
+		this.scoreText = "";
 	}
 
 	create() {
-		this.createBG();
+		super.create();
 		this.createBird();
 		this.createPipes();
 		this.createColliders();
+		this.createScore();
+		this.createPause();
 		this.handleInputs();
 	}
 
@@ -45,10 +37,6 @@ class PlayScene extends Phaser.Scene {
 		if (this.bird.getBounds().bottom > this.config.height - this.bird.height / 2 || this.bird.y <= 0) {
 			this.gameOver();
 		}
-	}
-
-	createBG() {
-		this.add.image(0, 0, "sky").setOrigin(0);
 	}
 
 	createBird() {
@@ -97,6 +85,7 @@ class PlayScene extends Phaser.Scene {
 
 		if (pipesToMove.length) {
 			this.placePipe(...pipesToMove);
+			this.increaseScore();
 			pipesToMove = [];
 		}
 	}
@@ -114,17 +103,55 @@ class PlayScene extends Phaser.Scene {
 	gameOver() {
 		this.physics.pause();
 		this.bird.setTint(0xff0000);
+
+		this.saveBestScore();
+
 		this.time.addEvent({
 			delay: 1000,
 			loop: false,
 			callback: () => {
 				this.scene.restart();
+				this.score = 0;
 			},
 		});
 	}
 
 	flap() {
 		this.bird.body.velocity.y = -this.flapVelocity;
+	}
+
+	createScore() {
+		this.score = 0;
+		const bestScore = localStorage.getItem("bestScore");
+		this.scoreText = this.add.text(16, 16, `Score: ${this.score}`, { fontSize: "24px", fill: "#000" });
+		this.add.text(16, 48, `Best Score: ${bestScore || 0}`, { fontSize: "18px", fill: "#000" });
+	}
+
+	createPause() {
+		const pauseButton = this.add
+			.image(this.config.width - 16, 16, "pause")
+			.setScale(2)
+			.setInteractive()
+			.setOrigin(1, 0);
+
+		pauseButton.on("pointerdown", () => {
+			this.physics.pause();
+			this.scene.pause();
+		});
+	}
+
+	increaseScore() {
+		this.score++;
+		this.scoreText.setText(`Score: ${this.score}`);
+	}
+
+	saveBestScore() {
+		const bestScoreText = localStorage.getItem("bestScore");
+		const bestScore = bestScoreText && parseInt(bestScoreText, 10);
+
+		if (!bestScore || this.score > bestScore) {
+			localStorage.setItem("bestScore", this.score);
+		}
 	}
 }
 
